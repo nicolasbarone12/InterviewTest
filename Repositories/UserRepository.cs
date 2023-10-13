@@ -1,8 +1,10 @@
 ﻿using Infraestructure;
+using Infraestructure.Errors;
 using Repositories.Interfaces;
 using Repositories.ModelsDB;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -23,7 +25,34 @@ namespace Repositories
 
         public IEnumerable<IEntity> GetByFilters(string filterExpression)
         {
-            throw new NotImplementedException();
+            string queryLogin = $"Select UserId, UserCode, UserLastName, UserName from Users{filterExpression} ";
+            ICollection<IEntity> users = new List<IEntity>();
+            try
+            {
+                var dbHelper = new DbHelper();
+                DataTable dt = dbHelper.EjecutarQuery(System.Data.CommandType.Text, queryLogin);
+
+                if (dt is not null && dt.Rows.Count > 0)
+                {
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        users.Add(new UserEntity()
+                        {
+                            Id = int.Parse(row["UserId"].ToString()),
+                            UserCode = row["UserCode"].ToString(),
+                            UserLastName = row["UserLastName"].ToString(),
+                            UserName = row["UserName"].ToString()
+                        });
+                    }
+                }
+
+            }
+            catch(Exception ex)
+            {
+                throw;
+            }
+
+            return users;
         }
 
         public IEntity GetById(int id)

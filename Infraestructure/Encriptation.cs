@@ -2,27 +2,19 @@
 
 namespace Infraestructure
 {
-    public class Encriptation
+    public static class Encriptation
     {
-        private readonly IDataProtectionProvider _dataProtectionProvider;
-        private const string Key = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-        public Encriptation(IDataProtectionProvider dataProtectionProvider)
+        
+        public static string Encrypt(string input)
         {
-            _dataProtectionProvider = dataProtectionProvider;
+            byte[] data = System.Text.Encoding.ASCII.GetBytes(input);
+            data = new System.Security.Cryptography.SHA256Managed().ComputeHash(data);
+            String hash = System.Text.Encoding.ASCII.GetString(data);
+
+            return hash;
         }
 
-        public string Encrypt(string input)
-        {
-            var protector = _dataProtectionProvider.CreateProtector(Key);
-            return protector.Protect(input);
-        }
-
-        public string Decrypt(string cipherText)
-        {
-            var protector = _dataProtectionProvider.CreateProtector(Key);
-            return protector.Unprotect(cipherText);
-        }
+        
     }
 }
 

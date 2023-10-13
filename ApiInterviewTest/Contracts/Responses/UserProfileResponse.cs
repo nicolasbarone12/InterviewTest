@@ -5,5 +5,7 @@
         public string UserName { get; set; }
         public string LastName { get; set; }
         public string UserCode { get; set; }
+
+        public AuthResponse Auth { get; set; }
     }
 }

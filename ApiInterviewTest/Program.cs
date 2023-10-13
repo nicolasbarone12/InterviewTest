@@ -1,4 +1,5 @@
 using Infraestructure;
+using Infraestructure.Auth;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
@@ -15,14 +16,13 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 
-builder.Services.AddDataProtection()
-       .UseCryptographicAlgorithms(new AuthenticatedEncryptorConfiguration()
-       {
-           EncryptionAlgorithm = EncryptionAlgorithm.AES_256_GCM,
-           ValidationAlgorithm = ValidationAlgorithm.HMACSHA256
-       });
+builder.Services.AddScoped<JwtTokenService>();
+// builder.Services.AddScoped<ClientValidationService>();
 
-builder.Services.AddSingleton<Encriptation>();
+
+Infraestructure.Auth.JwtAuthentication.ConfigureJwtAuthentication(builder.Services, builder.Configuration);   //Auth.JwtAuthentication.ConfigureJwtAuthentication(builder.Services, builder.Configuration);
+
+
 
 builder.Services.AddScoped<IService, UserService>(s =>
 {
@@ -40,6 +40,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

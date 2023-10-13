@@ -2,6 +2,8 @@
 using ApiInterviewTest.Contracts.Requests;
 using ApiInterviewTest.Contracts.Responses;
 using Infraestructure;
+using Infraestructure.Auth;
+using Infraestructure.Errors;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
 using Microsoft.AspNetCore.Mvc;
@@ -18,14 +20,17 @@ namespace ApiInterviewTest.Controllers
     public class HomeController : ControllerBase
     {
         private readonly IService _userService;
-        private readonly Encriptation _encriptor;
-        public HomeController(IService userService, Encriptation encriptor)
+        private readonly JwtTokenService _jwtTokenService;
+        private readonly IConfiguration _configuration;
+
+        public HomeController(IService userService, IConfiguration configuration, JwtTokenService jwtTokenService)
         {
             _userService = userService;
-            _encriptor = encriptor;
+            _configuration = configuration;
+            _jwtTokenService = jwtTokenService;
         }
 
-        [HttpPost]
+        [HttpPost("RegisterUser")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -45,14 +50,25 @@ namespace ApiInterviewTest.Controllers
                 
                 if(((UserService)_userService).RegisterUser(newUser))
                 {
+                    
+
+                    string jwtToken = _jwtTokenService.GenerateJwtToken(newUser.Password, newUser.UserCode);//, oAuthRequest.audience);
+
                     var userResponse = new UserProfileResponse()
                     {
                         LastName = newUser.UserLastName,
                         UserCode = request.UserCode,
                         UserName = request.UserName,
+                        Auth = new AuthResponse()
+                        {
+                            access_token = jwtToken,
+                            token_type = OAuthConstants.BEARER,
+                            expires_in = (long)TimeSpan.FromSeconds(_jwtTokenService.DURATION_SECONDS).TotalSeconds
+                        }
+                        
                     };
-
-                    return Created(string.Empty, userResponse);
+                    return Ok(userResponse);
+                    
                 }
 
                 return BadRequest(new ErrorResponse()
@@ -61,6 +77,14 @@ namespace ApiInterviewTest.Controllers
                     StatusCode = (int)HttpStatusCode.BadRequest
                 });
                 
+            }
+            catch(BaseException ex)
+            {
+                return BadRequest(new ErrorResponse()
+                {
+                    ErrorMessage = ex.Message,
+                    StatusCode = (int)HttpStatusCode.BadRequest
+                });
             }
             catch(Exception ex)
             {
@@ -73,14 +97,74 @@ namespace ApiInterviewTest.Controllers
             
         }
 
+
+        [HttpPost("LogIn")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public ActionResult<IResponse> LogIn([FromBody] LogInRequest request)
+        {
+            try
+            {
+                User loginUser = null;
+               
+                string userCode = request.UserCode;
+                string pass = this.EncodePassWord(request.Password);
+                loginUser = ((UserService)_userService).Login(userCode, pass);
+                if (loginUser is not null)
+                {
+                    
+
+                    string jwtToken = _jwtTokenService.GenerateJwtToken(pass, userCode);//, oAuthRequest.audience);
+
+                    var userResponse = new UserProfileResponse()
+                    {
+                        LastName = loginUser.UserLastName,
+                        UserCode = loginUser.UserCode,
+                        UserName = loginUser.UserName,
+                        Auth = new AuthResponse()
+                        {
+                            access_token = jwtToken,
+                            token_type = OAuthConstants.BEARER,
+                            expires_in = (long)TimeSpan.FromSeconds(_jwtTokenService.DURATION_SECONDS).TotalSeconds
+                        }
+
+                    };
+                    return Ok(userResponse);
+                }
+
+                return BadRequest(new ErrorResponse()
+                {
+                    ErrorMessage = "An error ocurred trying to login user.",
+                    StatusCode = (int)HttpStatusCode.BadRequest
+                });
+
+                
+            }
+            catch (BaseException ex)
+            {
+                return BadRequest(new ErrorResponse()
+                {
+                    ErrorMessage = ex.Message,
+                    StatusCode = (int)HttpStatusCode.BadRequest
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse()
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError,
+                    ErrorMessage = ex.Message
+                });
+            }
+            
+
+        }
         private string EncodePassWord(string pass)
         {
-            return _encriptor.Encrypt(pass);
+            return Encriptation.Encrypt(pass);
         }
 
-        private string DecodePassWord(string pass)
-        {
-            return _encriptor.Decrypt(pass);
-        }
+        
     }
 }
