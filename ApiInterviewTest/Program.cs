@@ -1,10 +1,8 @@
-using Infraestructure;
-using Infraestructure.Auth;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption;
-using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Services;
 using Services.Interfaces;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,20 +13,26 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-
-builder.Services.AddScoped<JwtTokenService>();
-// builder.Services.AddScoped<ClientValidationService>();
-
-
-Infraestructure.Auth.JwtAuthentication.ConfigureJwtAuthentication(builder.Services, builder.Configuration);   //Auth.JwtAuthentication.ConfigureJwtAuthentication(builder.Services, builder.Configuration);
-
-
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = false,
+        ValidateIssuerSigningKey = false,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:SecretKey"]))
+    };
+});
 
 builder.Services.AddScoped<IService, UserService>(s =>
 {
     return new UserService();
 });
 
+builder.Services.AddScoped<IService, PatientService>(p =>
+{
+    return new PatientService();
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

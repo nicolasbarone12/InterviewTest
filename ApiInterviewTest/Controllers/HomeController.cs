@@ -2,15 +2,17 @@
 using ApiInterviewTest.Contracts.Requests;
 using ApiInterviewTest.Contracts.Responses;
 using Infraestructure;
-using Infraestructure.Auth;
 using Infraestructure.Errors;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 using Services;
 using Services.Interfaces;
 using Services.Models;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
+using System.Security.Claims;
+using System.Text;
 
 namespace ApiInterviewTest.Controllers
 {
@@ -20,14 +22,14 @@ namespace ApiInterviewTest.Controllers
     public class HomeController : ControllerBase
     {
         private readonly IService _userService;
-        private readonly JwtTokenService _jwtTokenService;
+        
         private readonly IConfiguration _configuration;
 
-        public HomeController(IService userService, IConfiguration configuration, JwtTokenService jwtTokenService)
+        public HomeController(IService userService, IConfiguration configuration)
         {
             _userService = userService;
             _configuration = configuration;
-            _jwtTokenService = jwtTokenService;
+            
         }
 
         [HttpPost("RegisterUser")]
@@ -50,23 +52,19 @@ namespace ApiInterviewTest.Controllers
                 
                 if(((UserService)_userService).RegisterUser(newUser))
                 {
-                    
 
-                    string jwtToken = _jwtTokenService.GenerateJwtToken(newUser.Password, newUser.UserCode);//, oAuthRequest.audience);
+
+                    var token = GenerateToken(newUser);
 
                     var userResponse = new UserProfileResponse()
                     {
                         LastName = newUser.UserLastName,
-                        UserCode = request.UserCode,
-                        UserName = request.UserName,
-                        Auth = new AuthResponse()
-                        {
-                            access_token = jwtToken,
-                            token_type = OAuthConstants.BEARER,
-                            expires_in = (long)TimeSpan.FromSeconds(_jwtTokenService.DURATION_SECONDS).TotalSeconds
-                        }
-                        
+                        UserCode = newUser.UserCode,
+                        UserName = newUser.UserName,
+                        Token = token
+
                     };
+                    return Ok(userResponse);
                     return Ok(userResponse);
                     
                 }
@@ -113,21 +111,16 @@ namespace ApiInterviewTest.Controllers
                 loginUser = ((UserService)_userService).Login(userCode, pass);
                 if (loginUser is not null)
                 {
-                    
 
-                    string jwtToken = _jwtTokenService.GenerateJwtToken(pass, userCode);//, oAuthRequest.audience);
+
+                    var token = GenerateToken(loginUser);
 
                     var userResponse = new UserProfileResponse()
                     {
                         LastName = loginUser.UserLastName,
                         UserCode = loginUser.UserCode,
                         UserName = loginUser.UserName,
-                        Auth = new AuthResponse()
-                        {
-                            access_token = jwtToken,
-                            token_type = OAuthConstants.BEARER,
-                            expires_in = (long)TimeSpan.FromSeconds(_jwtTokenService.DURATION_SECONDS).TotalSeconds
-                        }
+                        Token = token
 
                     };
                     return Ok(userResponse);
@@ -160,11 +153,32 @@ namespace ApiInterviewTest.Controllers
             
 
         }
+
+        private string GenerateToken(User loginUser)
+        {
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtSettings:SecretKey"]));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier,loginUser.UserCode)
+            };
+            var token = new JwtSecurityToken(null,
+                null,
+                claims,
+                null,
+                signingCredentials: credentials);
+
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
         private string EncodePassWord(string pass)
         {
             return Encriptation.Encrypt(pass);
         }
 
         
+
+
     }
 }

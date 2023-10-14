@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 
 namespace ApiInterviewTest.Contracts.Requests
 {
-    public class LogInRequest
+    public class LogInRequest:IUserRequest
     {
         [JsonRequired]        
         public string UserCode { get; set; }

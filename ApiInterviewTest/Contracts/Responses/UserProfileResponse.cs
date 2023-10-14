@@ -6,6 +6,6 @@
         public string LastName { get; set; }
         public string UserCode { get; set; }
 
-        public AuthResponse Auth { get; set; }
+        public string Token { get; set; }
     }
 }
